@@ -197,6 +197,9 @@
                                     <button onclick="copyJoinLink()" class="p-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">
                                         <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                                     </button>
+                                    <button onclick="createNewRoom()" title="建立新場次" class="p-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">
+                                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -516,7 +519,43 @@
 
         const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : (firebaseConfig?.projectId || 'winnie-interactive-suite');
         const urlParams = new URLSearchParams(window.location.search);
-        const roomId = urlParams.get('room') || "global-live-room"; 
+        const hasUserParam = window.location.hash.includes('user') || window.location.search.includes('user');
+        const roomParam = urlParams.get('room');
+
+        function createRoomId() {
+            const randomPart = Math.random().toString(36).slice(2, 8);
+            return `room-${Date.now().toString(36)}-${randomPart}`;
+        }
+
+        function getInitialRoomId() {
+            if (roomParam) {
+                return roomParam.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || "global-live-room";
+            }
+
+            if (hasUserParam) {
+                return "global-live-room";
+            }
+
+            const savedRoomId = localStorage.getItem('winnie_admin_room_id');
+            if (savedRoomId) return savedRoomId;
+
+            const newRoomId = createRoomId();
+            localStorage.setItem('winnie_admin_room_id', newRoomId);
+            return newRoomId;
+        }
+
+        const roomId = getInitialRoomId();
+
+        function buildRoomUrl(role) {
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('room', roomId);
+            if (role === 'user') url.hash = 'user';
+            return url.toString();
+        }
+
+        if (!roomParam && !hasUserParam) {
+            window.history.replaceState(null, '', buildRoomUrl('admin'));
+        }
 
         // 系統狀態控制變數
         let currentUser = null;
@@ -584,7 +623,6 @@
         }
 
         function detectInitialTab() {
-            const hasUserParam = window.location.hash.includes('user') || window.location.search.includes('user');
             if (hasUserParam) {
                 switchTab('user');
                 const roleSelector = document.getElementById('role-selector-container');
@@ -678,7 +716,7 @@
                 if (titleLabel) titleLabel.innerText = getToolLabel(roomData.currentTool);
                 updateAdminTabStyles(roomData.currentTool);
 
-                const cleanUrl = window.location.href.split('#')[0].split('?')[0] + '#user';
+                const cleanUrl = buildRoomUrl('user');
                 const joinUrlInput = document.getElementById('admin-join-url');
                 if (joinUrlInput) joinUrlInput.value = cleanUrl;
                 
@@ -2352,6 +2390,14 @@
                     showToast("❌ 無法複製連結，請手動複製。");
                 }
             })();
+        };
+
+        window.createNewRoom = function() {
+            const newRoomId = createRoomId();
+            localStorage.setItem('winnie_admin_room_id', newRoomId);
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('room', newRoomId);
+            window.location.href = url.toString();
         };
 
         window.toggleFullscreen = function() {
