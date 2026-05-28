@@ -754,6 +754,7 @@
                     { id: 4, text: "有些疑慮，建議再研議討論" },
                     { id: 5, text: "不贊同，有更適合的替代方案" }
                 ],
+                voteRoundId: "vote-initial",
                 voteType: "single",
                 wordcloudQuestion: "對今天的主題有何看法？",
                 wordcloudSuggestions: ["創新", "創意", "實用", "收穫滿滿", "跨域整合", "專業力", "思維升級", "突破框架", "團隊協作", "啟發思考", "高效執行", "落地應用"],
@@ -1025,16 +1026,20 @@
                 return;
             }
 
+            const voteRoundId = `vote-${Date.now()}`;
+
             try {
                 if (!isOffline && db) {
                     const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
                     await updateDoc(roomDocRef, {
                         voteQuestion: question,
-                        voteOptions: optionVals
+                        voteOptions: optionVals,
+                        voteRoundId: voteRoundId
                     });
                 } else {
                     roomData.voteQuestion = question;
                     roomData.voteOptions = optionVals;
+                    roomData.voteRoundId = voteRoundId;
                     saveLocalData();
                     syncLocalUI();
                 }
@@ -1153,6 +1158,56 @@
         // ==========================================
         // 8. 講師端：大螢幕即時投影區渲染
         // ==========================================
+        function getCurrentVoteRoundId() {
+            if (roomData?.voteRoundId) return String(roomData.voteRoundId);
+            const optionSignature = (roomData?.voteOptions || [])
+                .map(opt => `${opt.id}:${opt.text}`)
+                .join('|');
+            return `legacy-${roomData?.voteQuestion || ''}|${optionSignature}`;
+        }
+
+        function getCurrentVotes() {
+            const currentRoundId = getCurrentVoteRoundId();
+            return votesList.filter(v => String(v.voteRoundId || '') === currentRoundId);
+        }
+
+        function getCurrentUserVote() {
+            if (!currentUser) return null;
+            return getCurrentVotes().find(v => v.uid === currentUser.uid);
+        }
+
+        function getOptionColor(index) {
+            const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#38bdf8', '#a855f7'];
+            return colors[index % colors.length];
+        }
+
+        function generateSvgPieChart(optionsStats) {
+            const circumference = 2 * Math.PI * 40;
+            let offset = 0;
+
+            if (!optionsStats.some(stat => stat.count > 0)) {
+                return `
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" stroke-width="18"></circle>
+                    <circle cx="50" cy="50" r="24" fill="#0f172a"></circle>
+                `;
+            }
+
+            return optionsStats.map((stat, idx) => {
+                if (stat.percent <= 0) return '';
+                const dash = stat.percent * circumference;
+                const segment = `
+                    <circle cx="50" cy="50" r="40" fill="none"
+                        stroke="${getOptionColor(idx)}"
+                        stroke-width="18"
+                        stroke-dasharray="${dash} ${circumference - dash}"
+                        stroke-dashoffset="${-offset}"
+                        stroke-linecap="butt"></circle>
+                `;
+                offset += dash;
+                return segment;
+            }).join('') + '<circle cx="50" cy="50" r="24" fill="#0f172a"></circle>';
+        }
+
         function renderAdminDisplayCanvas() {
             const container = document.getElementById('admin-active-display-canvas');
             if (!container || !roomData) return;
@@ -1197,9 +1252,10 @@
                 }
 
             } else if (roomData.currentTool === 'vote') {
-                const totalVotes = votesList.length;
+                const currentVotes = getCurrentVotes();
+                const totalVotes = currentVotes.length;
                 const optionsStats = roomData.voteOptions.map(opt => {
-                    const count = votesList.filter(v => v.optionId === opt.id).length;
+                    const count = currentVotes.filter(v => Number(v.optionId) === Number(opt.id)).length;
                     const percent = totalVotes > 0 ? (count / totalVotes) : 0;
                     return { ...opt, count, percent };
                 });
@@ -1464,7 +1520,7 @@
                 `;
 
             } else if (roomData.currentTool === 'vote') {
-                const myVote = votesList.find(v => v.uid === currentUser.uid);
+                const myVote = getCurrentUserVote();
 
                 container.innerHTML = `
                     <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
@@ -1658,11 +1714,18 @@
                 return;
             }
 
+            if (getCurrentUserVote()) {
+                showToast("Already voted for this question.");
+                syncLocalUI();
+                return;
+            }
+
             try {
                 for (const box of checkedBoxes) {
                     const optId = parseInt(box.value);
                     const voteData = {
                         roomId: roomId,
+                        voteRoundId: getCurrentVoteRoundId(),
                         optionId: optId,
                         uid: currentUser.uid,
                         timestamp: Date.now()
@@ -1983,9 +2046,10 @@
                 saveImageTrigger(offCanvas);
 
             } else if (tool === 'vote') {
-                const totalVotes = votesList.length;
+                const currentVotes = getCurrentVotes();
+                const totalVotes = currentVotes.length;
                 const optionsStats = roomData.voteOptions.map(opt => {
-                    const count = votesList.filter(v => v.optionId === opt.id).length;
+                    const count = currentVotes.filter(v => Number(v.optionId) === Number(opt.id)).length;
                     const percent = totalVotes > 0 ? (count / totalVotes) : 0;
                     return { ...opt, count, percent };
                 });
@@ -2221,8 +2285,9 @@
 
             csv += "=== 2. 即時投票統計 ===\n";
             csv += `投票題目,"${roomData.voteQuestion.replace(/"/g, '""')}"\n`;
+            const currentVotes = getCurrentVotes();
             roomData.voteOptions.forEach((opt, idx) => {
-                const count = votesList.filter(v => v.optionId === opt.id).length;
+                const count = currentVotes.filter(v => Number(v.optionId) === Number(opt.id)).length;
                 csv += `${String.fromCharCode(65 + idx)}. ${opt.text},${count} 票\n`;
             });
             csv += "\n";
