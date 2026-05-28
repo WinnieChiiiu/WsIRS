@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winnie EdTech Lab - AI 互動套件箱</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- WordCloud2.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.1.1/wordcloud2.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+            background-color: #0b1120;
+        }
+
+        /* 專屬個人標籤與滑鼠移動特效 */
+        .footer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem 1rem;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            width: 100%;
+            background: linear-gradient(to top, rgba(11, 17, 32, 0.95), transparent);
+        }
+
+        .winnie-badge {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: #fbbf24; /* 金色 */
+            cursor: pointer;
+            padding: 0.6rem 1.5rem;
+            border-radius: 9999px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        /* 滑鼠懸停特效：輕微放大、發出金色霓虹光暈 */
+        .winnie-badge:hover {
+            transform: scale(1.08) translateY(-3px);
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.45), 
+                        inset 0 0 12px rgba(245, 158, 11, 0.25);
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+            border-color: rgba(245, 158, 11, 0.6);
+            background: rgba(245, 158, 11, 0.18);
+        }
+
+        .footer-text {
+            font-size: 0.875rem;
+            color: #64748b;
+            text-align: center;
+            letter-spacing: 0.025em;
+        }
+
+        /* 高級細緻網格背景裝飾 */
+        .bg-grid {
+            background-image: radial-gradient(rgba(99, 102, 241, 0.08) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 舞台背景聚光燈 */
+        .spotlight-bg {
+            background: radial-gradient(circle at center, rgba(99, 102, 241, 0.12) 0%, rgba(15, 23, 42, 0) 70%);
+        }
+
+        /* 呼吸發光效果 */
+        .glow-pulse {
+            animation: pulse-glow 2s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                box-shadow: 0 0 5px rgba(245, 158, 11, 0.15);
+                border-color: rgba(245, 158, 11, 0.2);
+            }
+            100% {
+                box-shadow: 0 0 15px rgba(245, 158, 11, 0.45);
+                border-color: rgba(245, 158, 11, 0.6);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col relative bg-grid">
+
+    <!-- Toast 訊息提示 (已改至右下角呈現，防禦按鈕遮擋) -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2"></div>
+
+    <!-- 雲端安全認證載入遮罩 -->
+    <div id="auth-loading" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center gap-4 transition-opacity duration-300">
+        <div class="h-10 w-10 rounded-full border-4 border-t-amber-500 border-slate-800 animate-spin"></div>
+        <p class="text-slate-400 text-xs animate-pulse">正在開啟 Winnie 雲端即時通道...</p>
+    </div>
+
+    <!-- 頂部導航 -->
+    <header class="border-b border-slate-800/60 bg-slate-950/40 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="h-9 w-9 rounded-lg bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                    <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
+                </div>
+                <span class="text-sm sm:text-base font-bold text-slate-100">
+                    Winnie EdTech Live 互動套件箱
+                </span>
+            </div>
+            
+            <!-- 切換視角分段按鈕 -->
+            <div id="role-selector-container" class="bg-slate-900 border border-slate-800 p-1 rounded-xl flex items-center">
+                <button id="btn-tab-admin" onclick="switchTab('admin')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 bg-indigo-600 text-white">
+                    <i data-lucide="projector" class="w-3.5 h-3.5"></i>
+                    📺 投影與控制
+                </button>
+                <button id="btn-tab-user" onclick="switchTab('user')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-400 hover:text-slate-200">
+                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                    ✍️ 學員填答
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主畫面區 -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full flex flex-col justify-center">
+
+        <!-- ============================================ -->
+        <!-- 視角 A：引導師大螢幕與管理後台 -->
+        <!-- ============================================ -->
+        <section id="view-admin" class="flex-grow flex flex-col gap-6">
+            
+            <!-- 講師工具切換頁籤 -->
+            <div class="flex flex-wrap justify-center bg-slate-950/60 border border-slate-800/80 rounded-2xl p-1.5 gap-1.5">
+                <button id="admin-tab-icebreaker" onclick="changeAdminTool('icebreaker')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2">
+                    <i data-lucide="toy-brick" class="w-4 h-4"></i>
+                    1. 🧩 破冰暖身卡
+                </button>
+                <button id="admin-tab-vote" onclick="changeAdminTool('vote')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    2. 🗳️ 即時投票系統
+                </button>
+                <button id="admin-tab-wordcloud" onclick="changeAdminTool('wordcloud')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2">
+                    <i data-lucide="cloud" class="w-4 h-4"></i>
+                    3. ☁️ 即時文字雲
+                </button>
+                <button id="admin-tab-stickynotes" onclick="changeAdminTool('stickynotes')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2">
+                    <i data-lucide="sticky-note" class="w-4 h-4"></i>
+                    4. 📝 便利貼牆
+                </button>
+            </div>
+
+            <!-- 主工作區 (左控制，右大螢幕展示) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-grow">
+                
+                <!-- 左側：講師專屬控制台與 QR 分享 -->
+                <div id="admin-sidebar" class="lg:col-span-4 flex flex-col gap-5">
+                    
+                    <!-- 分享控制區 -->
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                        <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-850">
+                            <div>
+                                <span class="text-[10px] text-slate-500 font-bold uppercase">雲端看板</span>
+                                <h3 class="text-sm font-bold text-indigo-400">常駐同步通道</h3>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-slate-500 font-bold uppercase block">參與人數</span>
+                                <span id="admin-user-count" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">0 人</span>
+                            </div>
+                        </div>
+
+                        <!-- 行動條碼掃描區 -->
+                        <div class="flex gap-4 items-center bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                            <div class="bg-white p-1 rounded-lg shrink-0 w-24 h-24 flex items-center justify-center">
+                                <img id="admin-qrcode" src="" alt="行動條碼" class="w-full h-full">
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <span class="text-[10px] text-slate-400 block font-medium mb-1">學員掃碼直接填答：</span>
+                                <div class="flex gap-1">
+                                    <input type="text" id="admin-join-url" readonly class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[10px] text-slate-400 font-mono w-full truncate focus:outline-none">
+                                    <button onclick="copyJoinLink()" class="p-1 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 免費部署實戰教學提示 (解答 WebKit 錯誤) -->
+                        <div class="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-3 text-[11px] text-slate-300 leading-relaxed space-y-1 mt-3">
+                            <span class="font-bold text-amber-400 flex items-center gap-1">
+                                <i data-lucide="help-circle" class="w-3.5 h-3.5"></i> 💡 行動端連線提示：
+                            </span>
+                            <p>本套件已自帶完全離線與即時雲端雙引擎。若學員手機掃描出現問題，請將本檔案部署至 Vercel, Netlify 或 GitHub Pages 即可完美跨網連線！</p>
+                        </div>
+
+                        <!-- 功能按鈕 -->
+                        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-800/60">
+                            <button onclick="exportGoogleSheetsCSV()" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-400"></i> 匯出 CSV 報告
+                            </button>
+                            <button onclick="openClearDataModal()" class="py-2 px-3 bg-red-950/20 hover:bg-red-900/40 border border-red-900/30 text-red-400 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 清空資料
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 工具動態控制區 -->
+                    <div id="admin-tool-control" class="flex-grow">
+                        <!-- 由 JS 依據當前 Active Tool 塞入不同的控制 UI -->
+                    </div>
+
+                </div>
+
+                <!-- 右側：大螢幕即時投影區 -->
+                <div id="admin-canvas-container" class="lg:col-span-8 flex flex-col">
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl flex flex-col h-full overflow-hidden min-h-[500px] relative spotlight-bg">
+                        
+                        <!-- 大螢幕標題與控制按鈕 -->
+                        <div class="px-6 py-4 border-b border-slate-800/80 bg-slate-950/20 flex items-center justify-between z-10">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span id="admin-active-tool-label" class="text-sm font-semibold text-slate-200">破冰暖身卡</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <!-- 圖片生成並呼叫燈箱按鈕 (防禦 Iframe 下載限制) -->
+                                <button onclick="exportCurrentViewAsImage()" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors shadow-md border border-indigo-500/30">
+                                    <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                                    <span>下載畫面圖檔</span>
+                                </button>
+                                <button onclick="toggleFullscreen()" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors border border-slate-700" title="滿版投影">
+                                    <i data-lucide="monitor" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 投影展示核心區 -->
+                        <div id="admin-active-display-canvas" class="flex-grow w-full h-full p-6 flex items-center justify-center relative min-h-[420px] z-10">
+                            <!-- 動態裝載文字雲 Canvas、SVG 投票圖表、破冰卡或便利貼牆 -->
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ============================================ -->
+        <!-- 視角 B：學生/學員填答端介面 -->
+        <!-- ============================================ -->
+        <section id="view-user" class="hidden flex-grow max-w-xl mx-auto w-full flex flex-col gap-5 py-2">
+            
+            <!-- 暱稱設定與即時同步區 -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span id="user-sync-status" class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-500/15 text-indigo-300 rounded-full text-[10px] font-bold border border-indigo-500/20">
+                        <i data-lucide="radio" class="w-3.5 h-3.5 animate-pulse text-indigo-400"></i>
+                        即時同步中
+                    </span>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span class="text-xs text-slate-400 shrink-0">我的暱稱：</span>
+                    <input type="text" id="user-nickname-input" placeholder="設定您的暱稱..." maxlength="10" onchange="saveNickname(this.value)" class="w-full sm:w-40 bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none">
+                </div>
+            </div>
+
+            <!-- 目前進度說明 -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg text-center">
+                <h2 id="user-display-question" class="text-base sm:text-lg font-bold text-slate-100">正在讀取引導問題中...</h2>
+            </div>
+
+            <!-- 學員動態填答工具載體 -->
+            <div id="user-tool-container" class="flex flex-col gap-5 flex-grow">
+                <!-- 由 JS 動態注入填答區 -->
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- 專屬個人標籤與滑鼠移動特效 (Footer) -->
+    <div class="footer-container">
+        <div class="winnie-badge" onclick="showWinnieSurprise()">🐻 Winnie EdTech Lab</div>
+        <div class="footer-text">
+            © 2026 Developed by Winnie Lab | 專業讓你稱職 熱情使你傑出 🚀
+        </div>
+    </div>
+
+    <!-- 高質感圖片導出燈箱視窗 (Lightbox Modal) -->
+    <div id="image-export-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden transition-all duration-300">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]">
+            <!-- 彈窗頭部 -->
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="image" class="w-5 h-5 text-indigo-400"></i>
+                    <h3 class="font-bold text-slate-100">生成高畫質簡報圖檔</h3>
+                </div>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <!-- 彈窗本體 (顯示圖片與引導) -->
+            <div class="p-6 overflow-y-auto space-y-4 flex-grow flex flex-col items-center">
+                <!-- 提示警告 -->
+                <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-3.5 w-full text-xs text-slate-300 flex items-start gap-2.5">
+                    <i data-lucide="info" class="w-4 h-4 text-indigo-400 shrink-0 mt-0.5"></i>
+                    <div>
+                        <p class="font-semibold text-amber-400 mb-0.5">💡 提示：為防禦瀏覽器 iframe 沙盒限制阻擋下載，請依照以下方式儲存：</p>
+                        <p class="text-slate-400">電腦端：請對下方圖片「按右鍵」，選擇「另存新檔 / 另存圖片」。</p>
+                        <p class="text-slate-400">手機或平板端：請「長按下方圖片」，選擇「儲存影像 / 加入照片」。</p>
+                    </div>
+                </div>
+                <!-- 生成出來的實際圖片載體 -->
+                <div class="border border-slate-800 rounded-2xl overflow-hidden shadow-lg bg-slate-950 max-w-full">
+                    <img id="export-preview-img" src="" alt="Winnie Live Deck Snapshot" class="max-h-[50vh] object-contain mx-auto">
+                </div>
+            </div>
+            <!-- 彈窗底部 -->
+            <div class="px-6 py-4 border-t border-slate-800 flex justify-end bg-slate-950/40">
+                <button onclick="closeExportModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-colors">
+                    關閉視窗
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 高奢防震數據清除確認彈窗 (Custom Confirmation Modal) -->
+    <div id="clear-data-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden transition-all duration-300">
+        <div class="bg-slate-900 border border-red-500/30 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl p-6 space-y-4">
+            <div class="flex items-center gap-3 text-red-400">
+                <div class="p-2 bg-red-500/10 rounded-lg">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-100">確定要清空資料嗎？</h3>
+                    <p class="text-xs text-slate-400">此動作無法還原</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                您即將永久刪除全體學員目前的投票記錄、破冰答案、文字雲投稿以及便利貼資料。大螢幕上的所有內容將會被重設。
+            </p>
+            <div class="flex justify-end gap-2.5 pt-2">
+                <button onclick="closeClearDataModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-semibold transition-colors">
+                    取消
+                </button>
+                <button onclick="confirmClearAllData()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md">
+                    確認清除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offscreen Canvas 用於高解析度繪製截圖 -->
+    <canvas id="offscreen-export-canvas" style="display: none;"></canvas>
+
+    <!-- Firebase SDK 模組化引入 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, addDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 0. 本地內建靜態資料庫 (Presets Pools)
+        // ==========================================
+        const ICEBREAKER_POOL = {
+            "團隊建立": [
+                "今天出門或上課前，你做的最後一件事是什麼？",
+                "如果可以擁有一種超能力來幫你度過今天，你會選什麼？",
+                "如果你的小組是一支超級英雄團隊，你覺得你的特殊擔當是什麼？",
+                "分享一個你最近學到、讓你覺得「天啊這太酷了吧」的冷知識。",
+                "如果要選一首歌代表你這週的工作或學習狀態，會是哪首歌？",
+                "如果你現在是一隻動物，你覺得自己此時此刻最像哪一種動物？"
+            ],
+            "數位科技": [
+                "手機裡你絕對不能刪掉的 App 是哪一個（除了通訊與社群軟體）？",
+                "如果科技自動化可以幫你完全代勞一件生活瑣事，你最希望是哪件事？",
+                "你最常用、最能代表你今天心情的 Emoji 繪文字是哪一個？",
+                "想像十年後的未來，你覺得那時候最不可或缺的隨身科技是什麼？",
+                "如果車輛可以百分百自動駕駛，你在通勤時最想做的第一件事是什麼？"
+            ],
+            "設計思考": [
+                "觀察手邊最常用的一個物品，如果能幫它增加一個瘋狂新功能，會是什麼？",
+                "如果要把這間教室改造成全世界最有趣的空間，你最想放什麼進來？",
+                "分享一件你這禮拜遇到「如果這樣設計就太好了」的日常生活不便。",
+                "如果要給「設計思考」下一個最白話、最酷的定義，你會怎麼形容？",
+                "試著用三種截然不同的用途來形容一隻普通的鉛筆，越有創意越好！"
+            ],
+            "跨域學習": [
+                "如果能立刻獲得一項跨領域的專業大師級技能，你最想瞬間學會什麼？",
+                "當你的本業專業，碰上「藝術與設計」時，你覺得會激盪出什麼火花？",
+                "推薦一部你覺得每個人一輩子都應該看一次的跨領域經典電影或書籍。",
+                "想像一下，「歷史學家」和「程式工程師」聚在一起，最能解決什麼問題？",
+                "如果你可以同時兼職兩個完全不同的夢幻職業，那會是哪兩個組合？"
+            ],
+            "自主學習": [
+                "最近一個月內，你完全出於好奇、自願去鑽研或學習的新知識是什麼？",
+                "當你學習卡關、完全沒有動力時，你最有效的「重啟大腦」儀式是什麼？",
+                "如果要為自己量身打造一門「一學分夢幻課」，這門課的名稱會叫什麼？",
+                "你最近發現哪一個線上學習工具、網站或 Podcast 最讓你驚艷？",
+                "如果自主學習是一場冒險，你覺得自己現在是個新手村民還是職涯冒險家？"
+            ]
+        };
+
+        const VOTE_TEMPLATES = [
+            {
+                title: "🎯 議題滿意成效評估",
+                question: "對於今天討論的關鍵議題，您的看法是？",
+                options: [
+                    "高度贊同，且願意主動推廣",
+                    "贊同，但需要更多執行配套",
+                    "持中立態度，想多看後續成效",
+                    "有些疑慮，建議再研議討論",
+                    "不贊同，有更適合的替代方案"
+                ]
+            },
+            {
+                title: "🚀 專案優先方向決策",
+                question: "關於專案下一步，我們應該優先專注在哪個方向？",
+                options: [
+                    "加速產品開發與核心技術突破",
+                    "優化用戶體驗與介面細節調整",
+                    "加強行銷推廣與市場聲量建立",
+                    "收集更多用戶回饋與數據分析",
+                    "尋求跨界合作與異業資源整合"
+                ]
+            },
+            {
+                title: "💡 課程實用收穫調查",
+                question: "今天的學習內容中，哪一部分對您最實用？",
+                options: [
+                    "理論觀念與框架心法的建立",
+                    "實戰案例解析與經驗分享",
+                    "小組實作討論與共創歷程",
+                    "工具與套件工具箱的具體操作",
+                    "數位科技在教學中的應用思維"
+                ]
+            },
+            {
+                title: "⏱️ 時間分配比例喜好",
+                question: "您覺得最理想的活動時間安排比例是？",
+                options: [
+                    "講師授課時間長，實作演練短",
+                    "講授與實作各半，節奏均衡",
+                    "講師授課極精簡，留大量時間實踐",
+                    "著重在跨組成果發表與深度講評",
+                    "完全以動態工作坊與遊戲引導為主"
+                ]
+            }
+        ];
+
+        // ==========================================
+        // 1. 初始化環境與全域防呆 (Firebase Init)
+        // ==========================================
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error('無效的 __firebase_config:', e);
+        }
+
+        let app = null;
+        let auth = null;
+        let db = null;
+        try {
+            if (firebaseConfig) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } else {
+                console.warn('找不到 Firebase 設定；自動啟動完全離線（LocalStorage）本機運作模式。');
+            }
+        } catch (e) {
+            console.error('Firebase 初始化失敗:', e);
+        }
+
+        const appId = (typeof __app_id !== 'undefined' && __app_id) ? __app_id : 'winnie-interactive-suite';
+        const roomId = "global-live-room"; 
+
+        // 系統狀態控制變數
+        let currentUser = null;
+        let currentTab = 'admin'; // 'admin' | 'user'
+        let roomData = null; // 當前雲端同步文件資料
+        let submissionsList = []; // 投稿資料
+        let votesList = []; // 投票資料
+        let redrawTimer = null;
+        let isOffline = !db;
+
+        // ==========================================
+        // 2. 認證優先載入 (RULE 3 - Auth Before Queries)
+        // ==========================================
+        window.addEventListener('load', async () => {
+            lucide.createIcons();
+
+            if (isOffline) {
+                handleOfflineStartup();
+                return;
+            }
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error('資料庫認證失敗:', err);
+                showToast('❌ 無法建立安全通道，已切換為離線模式。');
+                isOffline = true;
+                handleOfflineStartup();
+            }
+        });
+
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    isOffline = false;
+
+                    const loader = document.getElementById('auth-loading');
+                    if (loader) {
+                        loader.classList.add('opacity-0');
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    }
+
+                    detectInitialTab();
+                    startFirebaseListeners();
+                }
+            });
+        }
+
+        function handleOfflineStartup() {
+            currentUser = { uid: 'local-user-' + Math.random().toString(36).slice(2, 8) };
+            const loader = document.getElementById('auth-loading');
+            if (loader) {
+                loader.classList.add('opacity-0');
+                setTimeout(() => loader.classList.add('hidden'), 300);
+            }
+            loadLocalData();
+            if (!roomData) roomData = getDefaultRoomData();
+            detectInitialTab();
+            syncLocalUI();
+        }
+
+        function detectInitialTab() {
+            const hasUserParam = window.location.hash.includes('user') || window.location.search.includes('user');
+            if (hasUserParam) {
+                switchTab('user');
+                const roleSelector = document.getElementById('role-selector-container');
+                if (roleSelector) roleSelector.classList.add('hidden');
+            } else {
+                switchTab('admin');
+            }
+        }
+
+        // ==========================================
+        // 3. 畫面切換與雲端同步機制
+        // ==========================================
+        window.switchTab = function(tabName) {
+            currentTab = tabName;
+
+            const viewAdmin = document.getElementById('view-admin');
+            const viewUser = document.getElementById('view-user');
+            const btnAdmin = document.getElementById('btn-tab-admin');
+            const btnUser = document.getElementById('btn-tab-user');
+
+            if (tabName === 'admin') {
+                viewAdmin.classList.remove('hidden');
+                viewUser.classList.add('hidden');
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 bg-indigo-600 text-white shadow";
+                btnUser.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-400 hover:text-slate-200";
+            } else {
+                viewAdmin.classList.add('hidden');
+                viewUser.classList.remove('hidden');
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-400 hover:text-slate-200";
+                btnUser.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 bg-amber-500 text-slate-950 shadow";
+            }
+            
+            syncLocalUI();
+        };
+
+        // ==========================================
+        // 4. Firebase 即時監聽與資料安全路徑 (RULE 1 & 2)
+        // ==========================================
+        let configUnsubscribe = null;
+        let submissionsUnsubscribe = null;
+        let votesUnsubscribe = null;
+
+        function startFirebaseListeners() {
+            if (!db || !currentUser) return;
+
+            if (configUnsubscribe) configUnsubscribe();
+            if (submissionsUnsubscribe) submissionsUnsubscribe();
+            if (votesUnsubscribe) votesUnsubscribe();
+
+            const configDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            
+            configUnsubscribe = onSnapshot(configDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    roomData = docSnap.data();
+                } else {
+                    roomData = getDefaultRoomData();
+                    setDoc(configDocRef, roomData).catch(e => console.error("初創雲端房間失敗:", e));
+                }
+                syncLocalUI();
+            }, (err) => {
+                console.error("雲端房間監聽異常:", err);
+                showToast("⚠️ 無法讀取雲端看板，已切換至本機備用緩存模式");
+                isOffline = true;
+                handleOfflineStartup();
+            });
+
+            const submissionsColRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+            submissionsUnsubscribe = onSnapshot(submissionsColRef, (snapshot) => {
+                submissionsList = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(sub => sub.roomId === roomId);
+                
+                syncLocalUI();
+            }, (err) => console.error("雲端投稿讀取失敗:", err));
+
+            const votesColRef = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
+            votesUnsubscribe = onSnapshot(votesColRef, (snapshot) => {
+                votesList = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(v => v.roomId === roomId);
+                
+                syncLocalUI();
+            }, (err) => console.error("雲端投票數據讀取失敗:", err));
+        }
+
+        function syncLocalUI() {
+            if (!roomData) return;
+
+            if (currentTab === 'admin') {
+                const titleLabel = document.getElementById('admin-active-tool-label');
+                if (titleLabel) titleLabel.innerText = getToolLabel(roomData.currentTool);
+                updateAdminTabStyles(roomData.currentTool);
+
+                const cleanUrl = window.location.href.split('#')[0].split('?')[0] + '#user';
+                const joinUrlInput = document.getElementById('admin-join-url');
+                if (joinUrlInput) joinUrlInput.value = cleanUrl;
+                
+                const qrcodeImg = document.getElementById('admin-qrcode');
+                if (qrcodeImg) {
+                    qrcodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(cleanUrl)}`;
+                }
+
+                const uniqueUsers = new Set([
+                    ...submissionsList.map(s => s.uid),
+                    ...votesList.map(v => v.uid)
+                ]);
+                const userCountEl = document.getElementById('admin-user-count');
+                if (userCountEl) userCountEl.innerText = `${uniqueUsers.size} 人`;
+
+                renderAdminControlPanel();
+                renderAdminDisplayCanvas();
+            } else {
+                const questionTitle = document.getElementById('user-display-question');
+                if (questionTitle) questionTitle.innerText = getUserActiveQuestion();
+                renderUserToolPanel();
+                
+                // 動態在輸入欄填入儲存的暱稱 (確保輸入聚焦時不打斷用戶)
+                const nickInput = document.getElementById('user-nickname-input');
+                if (nickInput && !nickInput.matches(':focus')) {
+                    nickInput.value = localStorage.getItem('winnie_user_nickname') || '學員 ' + currentUser.uid.substring(0, 4);
+                }
+            }
+        }
+
+        // ==========================================
+        // 5. 離線容錯資料存取機制 (Fallback Mechanism)
+        // ==========================================
+        function loadLocalData() {
+            try {
+                const s = localStorage.getItem('winnie_local_submissions');
+                const v = localStorage.getItem('winnie_local_votes');
+                const r = localStorage.getItem('winnie_local_room');
+                submissionsList = s ? JSON.parse(s) : [];
+                votesList = v ? JSON.parse(v) : [];
+                roomData = r ? JSON.parse(r) : null;
+            } catch (e) {
+                console.warn('本機緩存加載異常', e);
+            }
+        }
+
+        function saveLocalData() {
+            try {
+                localStorage.setItem('winnie_local_submissions', JSON.stringify(submissionsList));
+                localStorage.setItem('winnie_local_votes', JSON.stringify(votesList));
+                localStorage.setItem('winnie_local_room', JSON.stringify(roomData));
+            } catch (e) {
+                console.warn('無法寫入本機緩存', e);
+            }
+        }
+
+        function getDefaultRoomData() {
+            return {
+                roomId: roomId,
+                currentTool: 'icebreaker',
+                theme: '團隊建立',
+                icebreakerCards: [
+                    { id: 1, question: "今天出門或上課前，你做的最後一件事是什麼？" },
+                    { id: 2, question: "手機裡你絕對不能刪掉的 App 是哪一個？（除了社群軟體）" },
+                    { id: 3, question: "如果不考慮預算與時間，此時此刻你最想飛去哪裡？" }
+                ],
+                activeCardId: 1,
+                voteQuestion: "對於今天討論的關鍵議題，您的看法是？",
+                voteOptions: [
+                    { id: 1, text: "高度贊同，且願意主動推廣" },
+                    { id: 2, text: "贊同，但需要更多執行配套" },
+                    { id: 3, text: "持中立態度，想多看後續成效" },
+                    { id: 4, text: "有些疑慮，建議再研議討論" },
+                    { id: 5, text: "不贊同，有更適合的替代方案" }
+                ],
+                voteType: "single",
+                wordcloudQuestion: "對今天的主題有何看法？",
+                wordcloudSuggestions: ["創新", "創意", "實用", "收穫滿滿", "跨域整合", "專業力", "思維升級", "突破框架", "團隊協作", "啟發思考", "高效執行", "落地應用"],
+                stickyPrompt: "請寫下今天的課程心得或給引導師的回饋！",
+                stickySummary: "",
+                createdAt: Date.now()
+            };
+        }
+
+        // ==========================================
+        // 6. 講師端控制面板渲染 (靜態生成與快速設定)
+        // ==========================================
+        window.changeAdminTool = async function(toolName) {
+            if (!roomData) return;
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, { currentTool: toolName });
+                } else {
+                    roomData.currentTool = toolName;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast(`🔄 已切換看板：${getToolLabel(toolName)}`);
+            } catch (err) {
+                console.error("切換看板失敗:", err);
+            }
+        };
+
+        function renderAdminControlPanel() {
+            const container = document.getElementById('admin-tool-control');
+            if (!container || !roomData) return;
+
+            container.innerHTML = "";
+
+            if (roomData.currentTool === 'icebreaker') {
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="compass" class="w-4 h-4"></i> 破冰暖身主題設定
+                        </h3>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 font-semibold mb-1.5">選擇工作坊類別</label>
+                            <select id="admin-icebreaker-theme" class="w-full bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                                <option value="團隊建立" ${roomData.theme==='團隊建立'?'selected':''}>🤝 團隊建立 (Team Building)</option>
+                                <option value="數位科技" ${roomData.theme==='數位科技'?'selected':''}>💻 數位科技 (Digital Tech)</option>
+                                <option value="設計思考" ${roomData.theme==='設計思考'?'selected':''}>💡 設計思考 (Design Thinking)</option>
+                                <option value="跨域學習" ${roomData.theme==='跨域學習'?'selected':''}>🚀 跨域學習 (Interdisciplinary)</option>
+                                <option value="自主學習" ${roomData.theme==='自主學習'?'selected':''}>📚 自主學習 (Self-directed)</option>
+                            </select>
+                        </div>
+                        <button onclick="generateIcebreakerCards()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i> 本地即時載入三張黃金暖身卡
+                        </button>
+                        <div class="pt-3 border-t border-slate-850">
+                            <span class="block text-[11px] text-slate-400 font-semibold mb-2">點擊以下卡片，投放至大螢幕：</span>
+                            <div class="space-y-2" id="admin-icebreaker-cards-list"></div>
+                        </div>
+                    </div>
+                `;
+
+                const listContainer = document.getElementById('admin-icebreaker-cards-list');
+                roomData.icebreakerCards.forEach(card => {
+                    const isActive = Number(card.id) === Number(roomData.activeCardId);
+                    const cardBtn = document.createElement('button');
+                    cardBtn.onclick = () => activateIcebreakerCard(card.id);
+                    cardBtn.className = `w-full text-left p-3 rounded-xl border text-xs transition-all ${
+                        isActive 
+                        ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 font-bold shadow-md' 
+                        : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-750'
+                    }`;
+                    cardBtn.innerHTML = `
+                        <div class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] bg-slate-800 text-slate-400">卡片 ${card.id}</span>
+                            <span class="line-clamp-2 leading-relaxed">${card.question}</span>
+                        </div>
+                    `;
+                    listContainer.appendChild(cardBtn);
+                });
+
+            } else if (roomData.currentTool === 'vote') {
+                const isSingle = roomData.voteType === 'single';
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="check-square" class="w-4 h-4"></i> 投票命題與選項
+                        </h3>
+                        
+                        <div>
+                            <label class="block text-[11px] text-slate-400 font-semibold mb-1">使用精選投票模板載入</label>
+                            <select id="admin-vote-template" onchange="applyVoteTemplate(this.value)" class="w-full bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none mb-2">
+                                <option value="">-- 點擊選擇模板、自動鋪滿內容 --</option>
+                                ${VOTE_TEMPLATES.map((tpl, i) => `<option value="${i}">${tpl.title}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] text-slate-400 font-semibold mb-1">投票主題題目</label>
+                            <input type="text" id="admin-vote-question" value="${roomData.voteQuestion}" class="w-full bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                        </div>
+                        <div class="flex items-center justify-between bg-slate-950/50 p-3 rounded-xl border border-slate-850">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-200">學員填答機制</h4>
+                                <p class="text-[9px] text-slate-500">可自由選擇單選或複選</p>
+                            </div>
+                            <div class="bg-slate-900 border border-slate-800 p-0.5 rounded-lg flex items-center">
+                                <button onclick="toggleVoteType('single')" class="px-2.5 py-1 rounded text-[10px] font-bold transition-all ${isSingle?'bg-indigo-600 text-white':'text-slate-400 hover:text-slate-200'}">單選</button>
+                                <button onclick="toggleVoteType('multiple')" class="px-2.5 py-1 rounded text-[10px] font-bold transition-all ${!isSingle?'bg-indigo-600 text-white':'text-slate-400 hover:text-slate-200'}">複選</button>
+                            </div>
+                        </div>
+                        <div class="pt-3 border-t border-slate-850 space-y-2">
+                            <span class="block text-[11px] text-slate-400 font-semibold mb-1">選項編輯：</span>
+                            <div class="space-y-1.5" id="admin-vote-options-list"></div>
+                        </div>
+                        <button onclick="publishVoteSettings()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md">
+                            <i data-lucide="check" class="w-4 h-4"></i> 更新並同步投票設定
+                        </button>
+                    </div>
+                `;
+
+                const optContainer = document.getElementById('admin-vote-options-list');
+                roomData.voteOptions.forEach((opt, idx) => {
+                    const optDiv = document.createElement('div');
+                    optDiv.className = "flex gap-2 items-center";
+                    optDiv.innerHTML = `
+                        <span class="text-[11px] font-bold text-slate-500 font-mono w-4">${String.fromCharCode(65 + idx)}</span>
+                        <input type="text" id="vote-opt-${opt.id}" value="${opt.text}" class="flex-grow bg-slate-950/60 border border-slate-850 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none">
+                    `;
+                    optContainer.appendChild(optDiv);
+                });
+
+            } else if (roomData.currentTool === 'wordcloud') {
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i> 文字雲主題設定
+                        </h3>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 font-semibold mb-1">討論題目</label>
+                            <input type="text" id="admin-wordcloud-question" value="${roomData.wordcloudQuestion}" class="w-full bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                        </div>
+                        <button onclick="publishWordcloudSettings()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i> 發布討論題目並預載靈感膠囊
+                        </button>
+
+                        <div class="pt-3 border-t border-slate-850">
+                            <span class="block text-[11px] text-slate-400 font-semibold mb-2">已投稿詞彙審查與過濾 (點擊刪除)：</span>
+                            <div id="admin-word-list" class="space-y-1.5 max-h-[150px] overflow-y-auto no-scrollbar"></div>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => updateAdminModerationList(), 50);
+
+            } else if (roomData.currentTool === 'stickynotes') {
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg space-y-4">
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                            <i data-lucide="layers" class="w-4 h-4"></i> 便利貼牆引導設定
+                        </h3>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 font-semibold mb-1">引導提示語</label>
+                            <input type="text" id="admin-sticky-prompt" value="${roomData.stickyPrompt}" class="w-full bg-slate-950 border border-slate-750 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                        </div>
+                        <button onclick="publishStickyPrompt()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-md">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i> 發布便利貼主題
+                        </button>
+                    </div>
+                `;
+            }
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 7. 本地極速靜態生成與點讚邏輯 (100% 零依賴運作)
+        // ==========================================
+        
+        // 破冰提問：精選 3 張黃金暖身卡
+        window.generateIcebreakerCards = async function() {
+            const selectEl = document.getElementById('admin-icebreaker-theme');
+            const theme = selectEl ? selectEl.value : '團隊建立';
+            
+            showToast("⚡ 正在本機資料庫精選主題暖身卡片...");
+
+            const pool = ICEBREAKER_POOL[theme] || ICEBREAKER_POOL["團隊建立"];
+            const shuffled = [...pool].sort(() => 0.5 - Math.random());
+            const selectedQuestions = shuffled.slice(0, 3);
+            const newCards = selectedQuestions.map((q, idx) => ({ id: idx + 1, question: q }));
+
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, {
+                        theme: theme,
+                        icebreakerCards: newCards,
+                        activeCardId: 1
+                    });
+                } else {
+                    roomData.theme = theme;
+                    roomData.icebreakerCards = newCards;
+                    roomData.activeCardId = 1;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast("✨ 暖身卡更新完成！已切換為本地預載之優質互動題目。");
+            } catch (err) {
+                console.error("更新暖身卡失敗:", err);
+            }
+        };
+
+        window.activateIcebreakerCard = async function(cardId) {
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, { activeCardId: cardId });
+                } else {
+                    roomData.activeCardId = cardId;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast(`📺 已將 暖身卡 ${cardId} 投放至大螢幕！`);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // 投票模板快速套用
+        window.applyVoteTemplate = function(templateIndex) {
+            if (templateIndex === "") return;
+            const tpl = VOTE_TEMPLATES[parseInt(templateIndex)];
+            if (!tpl) return;
+
+            const questionInput = document.getElementById('admin-vote-question');
+            if (questionInput) questionInput.value = tpl.question;
+
+            tpl.options.forEach((optText, idx) => {
+                const optInput = document.getElementById(`vote-opt-${idx + 1}`);
+                if (optInput) optInput.value = optText;
+            });
+
+            showToast(`📝 已成功套入模板：${tpl.title}`);
+        };
+
+        window.toggleVoteType = function(type) {
+            if (!roomData) return;
+            roomData.voteType = type;
+            if (!isOffline && db) {
+                const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                updateDoc(roomDocRef, { voteType: type });
+            } else {
+                saveLocalData();
+                syncLocalUI();
+            }
+            showToast(`⚙️ 填答機制已切換為：${type === 'single' ? '單選' : '複選'}`);
+        };
+
+        window.publishVoteSettings = async function() {
+            const questionEl = document.getElementById('admin-vote-question');
+            const question = questionEl ? questionEl.value.trim() : '';
+            const optionVals = [];
+            for (let i = 1; i <= 5; i++) {
+                const optEl = document.getElementById(`vote-opt-${i}`);
+                const val = optEl ? optEl.value.trim() : '';
+                if (val) optionVals.push({ id: i, text: val });
+            }
+
+            if (!question || optionVals.length < 2) {
+                showToast("⚠️ 請填寫投票題目且至少包含 2 個選項！");
+                return;
+            }
+
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, {
+                        voteQuestion: question,
+                        voteOptions: optionVals
+                    });
+                } else {
+                    roomData.voteQuestion = question;
+                    roomData.voteOptions = optionVals;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast("🚀 投票主題與選項已全體同步！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // 文字雲：題目發布時自動載入 12 個推薦膠囊詞彙
+        window.publishWordcloudSettings = async function() {
+            const questionEl = document.getElementById('admin-wordcloud-question');
+            const question = questionEl ? questionEl.value.trim() : '';
+            if (!question) {
+                showToast("⚠️ 請輸入文字雲引導主題題目！");
+                return;
+            }
+
+            let suggestions = ["創新", "創意", "實用", "收穫滿滿", "跨域整合", "專業力", "思維升級", "突破框架", "團隊協作", "啟發思考", "高效執行", "落地應用"];
+            
+            const lowerQuestion = question.toLowerCase();
+            if (lowerQuestion.includes("科技") || lowerQuestion.includes("ai") || lowerQuestion.includes("工具")) {
+                suggestions = ["科技創新", "效率加倍", "未來趨勢", "智慧賦能", "實作落地", "跨界整合", "工具迭代", "數位轉型", "前沿視野", "流程優化", "人機協作", "敏捷思維"];
+            } else if (lowerQuestion.includes("團隊") || lowerQuestion.includes("溝通") || lowerQuestion.includes("協作") || lowerQuestion.includes("建立")) {
+                suggestions = ["團隊共創", "深度連結", "多元包容", "傾聽同理", "默契百分", "信任建立", "跨組激盪", "高效溝通", "共識凝聚", "情感共鳴", "同儕互助", "集體智慧"];
+            } else if (lowerQuestion.includes("學習") || lowerQuestion.includes("自主") || lowerQuestion.includes("心得")) {
+                suggestions = ["刻意練習", "熱情驅動", "思維升級", "打破框架", "知行合一", "持續成長", "自我反思", "系統思考", "主動探索", "終身學習", "知識內化", "實踐反饋"];
+            } else if (lowerQuestion.includes("設計") || lowerQuestion.includes("思考") || lowerQuestion.includes("創意")) {
+                suggestions = ["同理觀察", "定義問題", "瘋狂發想", "製作原型", "測試修正", "迭代思考", "使用者導向", "同理心訓練", "發散收斂", "創意碰撞", "美感體驗", "痛點解決"];
+            }
+
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, {
+                        wordcloudQuestion: question,
+                        wordcloudSuggestions: suggestions
+                    });
+                } else {
+                    roomData.wordcloudQuestion = question;
+                    roomData.wordcloudSuggestions = suggestions;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast("🚀 文字雲引導題目與 12 個推薦靈感膠囊已同步！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.publishStickyPrompt = async function() {
+            const promptEl = document.getElementById('admin-sticky-prompt');
+            const val = promptEl ? promptEl.value.trim() : '';
+            if (!val) {
+                showToast("⚠️ 請先輸入便利貼引導提示語！");
+                return;
+            }
+
+            try {
+                if (!isOffline && db) {
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, { stickyPrompt: val });
+                } else {
+                    roomData.stickyPrompt = val;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast("🚀 便利貼主題同步發布！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // 暱稱儲存至本地快取與全域同步
+        window.saveNickname = function(val) {
+            const clean = val.trim();
+            if (clean) {
+                localStorage.setItem('winnie_user_nickname', clean);
+                showToast(`👤 暱稱已成功設定為：${escapeHtml(clean)}`);
+                syncLocalUI();
+            }
+        };
+
+        // 便利貼點讚/集氣認證機制
+        window.likeStickyNote = async function(noteId) {
+            if (!currentUser) return;
+            const noteIndex = submissionsList.findIndex(s => s.id === noteId);
+            if (noteIndex === -1) return;
+            
+            const note = submissionsList[noteIndex];
+            let likes = note.likes || [];
+            const uidIndex = likes.indexOf(currentUser.uid);
+            
+            if (uidIndex === -1) {
+                likes.push(currentUser.uid);
+                showToast(`🚀 已成功為「${escapeHtml(note.text.substring(0, 8))}...」集氣認同！`);
+            } else {
+                likes.splice(uidIndex, 1);
+                showToast("💔 已收回認同");
+            }
+            
+            try {
+                if (!isOffline && db) {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', noteId);
+                    await updateDoc(docRef, { likes: likes });
+                } else {
+                    submissionsList[noteIndex].likes = likes;
+                    saveLocalData();
+                    syncLocalUI();
+                }
+            } catch (err) {
+                console.error("點讚更新失敗:", err);
+            }
+        };
+
+        // ==========================================
+        // 8. 講師端：大螢幕即時投影區渲染
+        // ==========================================
+        function renderAdminDisplayCanvas() {
+            const container = document.getElementById('admin-active-display-canvas');
+            if (!container || !roomData) return;
+
+            container.innerHTML = "";
+
+            if (roomData.currentTool === 'icebreaker') {
+                const activeCard = roomData.icebreakerCards.find(c => Number(c.id) === Number(roomData.activeCardId));
+                const question = activeCard ? activeCard.question : "暖身問題讀取中...";
+                const answers = submissionsList.filter(s => s.type === 'icebreaker' && Number(s.cardId) === Number(roomData.activeCardId));
+
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col gap-6">
+                        <div class="bg-gradient-to-r from-indigo-950/80 to-slate-900 border border-indigo-500/20 p-6 rounded-2xl text-center shadow-md relative">
+                            <div class="absolute -top-3 left-6 px-3 py-0.5 bg-indigo-600 text-white rounded-full text-[9px] font-bold uppercase tracking-wider">破冰提問暖身</div>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-100">${question}</h2>
+                        </div>
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto no-scrollbar max-h-[400px] p-1" id="admin-icebreaker-answers-grid">
+                        </div>
+                    </div>
+                `;
+
+                const grid = document.getElementById('admin-icebreaker-answers-grid');
+                if (answers.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full flex flex-col items-center justify-center py-12 text-slate-600">
+                            <i data-lucide="message-square-dashed" class="w-12 h-12 mb-2 animate-pulse text-indigo-400/80"></i>
+                            <p class="text-xs">等待學員分享暖身想法...</p>
+                        </div>
+                    `;
+                } else {
+                    answers.forEach(ans => {
+                        const displayName = ans.nickname ? ans.nickname : '學員 ' + ans.uid.substring(0, 4);
+                        const card = document.createElement('div');
+                        card.className = "bg-slate-900/60 border border-slate-800 rounded-xl p-4 shadow flex flex-col justify-between hover:border-slate-700 transition-all";
+                        card.innerHTML = `
+                            <p class="text-xs text-slate-200 leading-relaxed mb-3 font-medium">${escapeHtml(ans.text)}</p>
+                            <span class="text-[9px] text-slate-500 text-right"># ${escapeHtml(displayName)}</span>
+                        `;
+                        grid.appendChild(card);
+                    });
+                }
+
+            } else if (roomData.currentTool === 'vote') {
+                const totalVotes = votesList.length;
+                const optionsStats = roomData.voteOptions.map(opt => {
+                    const count = votesList.filter(v => v.optionId === opt.id).length;
+                    const percent = totalVotes > 0 ? (count / totalVotes) : 0;
+                    return { ...opt, count, percent };
+                });
+
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col gap-6">
+                        <div class="text-center">
+                            <span class="text-[10px] bg-amber-500/10 text-amber-300 font-bold border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">即時投票結果統計</span>
+                            <h2 class="text-sm sm:text-base font-bold text-slate-200 mt-2">${roomData.voteQuestion}</h2>
+                            <p class="text-xs text-slate-500 mt-1">累積投票：<span class="text-indigo-400 font-bold">${totalVotes}</span> 票</p>
+                        </div>
+                        <div class="flex-grow grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                            <div class="md:col-span-7 space-y-4">
+                                ${optionsStats.map((stat, idx) => {
+                                    const percentageString = Math.round(stat.percent * 100);
+                                    return `
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between text-xs font-semibold">
+                                                <span class="text-slate-300 truncate max-w-[80%]">${String.fromCharCode(65 + idx)}. ${stat.text}</span>
+                                                <span class="text-indigo-400">${stat.count} 票 (${percentageString}%)</span>
+                                            </div>
+                                            <div class="w-full bg-slate-950/80 rounded-full h-3 border border-slate-850 overflow-hidden">
+                                                <div class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 h-full rounded-full transition-all duration-500" style="width: ${percentageString}%"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <div class="md:col-span-5 flex flex-col items-center justify-center">
+                                <div class="w-44 h-44 relative">
+                                    <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
+                                        ${generateSvgPieChart(optionsStats)}
+                                    </svg>
+                                </div>
+                                <div class="flex flex-wrap gap-2 justify-center mt-4 text-[10px]">
+                                    ${optionsStats.map((stat, idx) => `
+                                        <span class="inline-flex items-center gap-1 text-slate-400">
+                                            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${getOptionColor(idx)}"></span>
+                                            ${String.fromCharCode(65 + idx)} (${Math.round(stat.percent * 100)}%)
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+            } else if (roomData.currentTool === 'wordcloud') {
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col relative" id="cloud-rendering-box">
+                        <canvas id="cloud-canvas" class="w-full h-full block z-10"></canvas>
+                        <div id="wordcloud-empty" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-0 hidden">
+                            <i data-lucide="cloud" class="w-12 h-12 text-slate-600 mb-2 animate-bounce"></i>
+                            <h3 class="text-slate-400 font-semibold text-sm">正在等待學員的看法投稿...</h3>
+                        </div>
+                    </div>
+                `;
+
+                const wcSubmissions = submissionsList.filter(s => s.type === 'wordcloud');
+                const wordCounts = {};
+                wcSubmissions.forEach(sub => {
+                    const cleanWord = sub.text.trim();
+                    if (cleanWord) {
+                        wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
+                    }
+                });
+
+                const wcEmpty = document.getElementById('wordcloud-empty');
+                if (Object.keys(wordCounts).length === 0) {
+                    if (wcEmpty) wcEmpty.classList.remove('hidden');
+                } else {
+                    if (wcEmpty) wcEmpty.classList.add('hidden');
+                    triggerWordCloudDrawing(wordCounts);
+                }
+
+            } else if (roomData.currentTool === 'stickynotes') {
+                const notes = submissionsList.filter(s => s.type === 'stickynotes');
+
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col gap-6">
+                        <div class="text-center">
+                            <span class="text-[10px] bg-indigo-500/15 text-indigo-400 font-bold border border-indigo-500/20 px-2.5 py-0.5 rounded-full uppercase">學員總結便利貼牆</span>
+                            <h2 class="text-xs sm:text-sm font-bold text-slate-200 mt-2">${roomData.stickyPrompt}</h2>
+                        </div>
+                        <div class="flex-grow grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto no-scrollbar max-h-[400px] p-1" id="admin-sticky-notes-grid">
+                        </div>
+                    </div>
+                `;
+
+                const grid = document.getElementById('admin-sticky-notes-grid');
+                if (notes.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full flex flex-col items-center justify-center py-12 text-slate-600">
+                            <i data-lucide="sticky-note" class="w-12 h-12 mb-2 animate-pulse text-indigo-400/80"></i>
+                            <p class="text-xs">等待學員張貼想法...</p>
+                        </div>
+                    `;
+                } else {
+                    notes.forEach(note => {
+                        const count = note.likes ? note.likes.length : 0;
+                        const hasLiked = note.likes && note.likes.includes(currentUser?.uid);
+                        const displayName = note.nickname ? note.nickname : '學員 ' + note.uid.substring(0, 4);
+                        const card = document.createElement('div');
+                        const colors = {
+                            yellow: 'bg-yellow-400/10 border-yellow-400/30 text-yellow-300',
+                            blue: 'bg-cyan-400/10 border-cyan-400/30 text-cyan-300',
+                            green: 'bg-emerald-400/10 border-emerald-400/30 text-emerald-300',
+                            pink: 'bg-pink-400/10 border-pink-400/30 text-pink-300'
+                        };
+                        const colorClass = colors[note.color] || colors.yellow;
+                        card.className = `${colorClass} border rounded-xl p-4 shadow-md relative hover:scale-105 transition-all flex flex-col justify-between min-h-[110px]`;
+                        card.innerHTML = `
+                            <p class="text-xs leading-relaxed font-medium mb-3">${escapeHtml(note.text)}</p>
+                            <div class="flex justify-between items-center mt-auto border-t border-white/5 pt-2">
+                                <button onclick="likeStickyNote('${note.id}')" class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-pink-500 transition-all text-[9px] font-bold active:scale-90">
+                                    <i data-lucide="heart" class="w-3 h-3 ${hasLiked ? 'fill-pink-500' : 'fill-none'}"></i>
+                                    <span>${count}</span>
+                                </button>
+                                <span class="text-[8px] opacity-60"># ${escapeHtml(displayName)}</span>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                }
+            }
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 9. 容錯防震文字雲渲染引擎 (Retina Align Engine)
+        // ==========================================
+        function triggerWordCloudDrawing(wordCounts) {
+            clearTimeout(redrawTimer);
+            redrawTimer = setTimeout(() => {
+                const canvas = document.getElementById('cloud-canvas');
+                const container = document.getElementById('cloud-rendering-box');
+                if (!canvas || !container) return;
+
+                const rect = container.getBoundingClientRect();
+                
+                if (rect.width <= 0 || rect.height <= 0) {
+                    renderHtmlBackupCloud(wordCounts, container);
+                    return;
+                }
+
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                canvas.style.width = `${rect.width}px`;
+                canvas.style.height = `${rect.height}px`;
+
+                const wordsArray = [];
+                const maxCount = Math.max(...Object.values(wordCounts));
+                const minCount = Math.min(...Object.values(wordCounts));
+                const baseSize = Math.max(14, rect.width / 15);
+
+                Object.entries(wordCounts).forEach(([word, count]) => {
+                    let size;
+                    if (maxCount === minCount) {
+                        size = baseSize;
+                    } else {
+                        const ratio = (count - minCount) / (maxCount - minCount);
+                        size = baseSize * 0.45 + (Math.sqrt(ratio) * baseSize * 1.55);
+                    }
+                    size = Math.max(12, Math.min(size, 75));
+                    wordsArray.push([word, Math.round(size)]);
+                });
+
+                try {
+                    WordCloud(canvas, {
+                        list: wordsArray,
+                        gridSize: 8, 
+                        weightFactor: 1,
+                        fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", sans-serif',
+                        fontWeight: '700',
+                        color: function (word) {
+                            if (wordCounts[word] === maxCount && maxCount > 1) return '#fbbf24';
+                            const palette = ['#34d399', '#a78bfa', '#fb7185', '#38bdf8', '#2dd4bf', '#818cf8'];
+                            return palette[Math.floor(Math.random() * palette.length)];
+                        },
+                        backgroundColor: 'transparent',
+                        rotateRatio: 0.2,
+                        rotationSteps: 2,
+                        shrinkToFit: true,
+                        drawOutOfBound: false
+                    });
+                } catch (e) {
+                    console.warn("WordCloud 執行報錯，改以 HTML 備援模式渲染:", e);
+                    renderHtmlBackupCloud(wordCounts, container);
+                }
+            }, 100);
+        }
+
+        function renderHtmlBackupCloud(wordCounts, container) {
+            const canvas = document.getElementById('cloud-canvas');
+            if (canvas) canvas.style.display = 'none';
+            
+            let backupDiv = document.getElementById('html-backup-cloud');
+            if (!backupDiv) {
+                backupDiv = document.createElement('div');
+                backupDiv.id = 'html-backup-cloud';
+                backupDiv.className = "absolute inset-0 flex flex-wrap gap-3 p-6 items-center justify-center overflow-y-auto no-scrollbar";
+                container.appendChild(backupDiv);
+            }
+            backupDiv.innerHTML = "";
+
+            const max = Math.max(...Object.values(wordCounts));
+            const min = Math.min(...Object.values(wordCounts));
+
+            Object.entries(wordCounts).forEach(([word, count]) => {
+                const ratio = max === min ? 0.5 : (count - min) / (max - min);
+                const size = 12 + ratio * 24; 
+                const color = max === count ? '#fbbf24' : getOptionColor(Math.floor(Math.random()*5));
+                
+                const span = document.createElement('span');
+                span.style.fontSize = `${size}px`;
+                span.style.color = color;
+                span.className = "font-bold transition-all px-2 py-1 bg-slate-900/40 border border-slate-800/60 rounded-xl hover:bg-slate-800";
+                span.innerText = `${word} (${count})`;
+                backupDiv.appendChild(span);
+            });
+        }
+
+        // ==========================================
+        // 10. 學員填答端邏輯控制 (包含同儕便利貼按讚牆)
+        // ==========================================
+        function renderUserToolPanel() {
+            const container = document.getElementById('user-tool-container');
+            if (!container || !roomData) return;
+            if (!currentUser) {
+                container.innerHTML = `<div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg text-center text-slate-400 animate-pulse">正在建立安全連線...</div>`;
+                return;
+            }
+
+            container.innerHTML = "";
+            const currentNickname = localStorage.getItem('winnie_user_nickname') || '學員 ' + currentUser.uid.substring(0, 4);
+
+            if (roomData.currentTool === 'icebreaker') {
+                const myAnswers = submissionsList.filter(s => s.type === 'icebreaker' && s.uid === currentUser.uid && Number(s.cardId) === Number(roomData.activeCardId));
+
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                        <label class="block text-xs font-semibold text-slate-400">寫下您的暖身想法 (送出後即刻同步大螢幕)：</label>
+                        <form onsubmit="submitIcebreakerAnswer(event)" class="space-y-3">
+                            <textarea id="user-icebreaker-input" required maxlength="100" placeholder="例如：喝大杯冰拿鐵提神！" rows="3"
+                                class="w-full bg-slate-950/80 border border-slate-700 focus:border-amber-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all resize-none"></textarea>
+                            <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 shadow-md">
+                                <i data-lucide="send" class="w-4 h-4"></i> 送出我的想法
+                            </button>
+                        </form>
+                        ${myAnswers.length > 0 ? `
+                            <div class="pt-3 border-t border-slate-850">
+                                <span class="text-[10px] text-slate-500 block mb-1.5">我已送出的想法：</span>
+                                <div class="space-y-1.5">
+                                    ${myAnswers.map(ans => `
+                                        <div class="bg-slate-950/40 border border-slate-850 rounded-lg px-3 py-2 text-xs text-slate-300">${escapeHtml(ans.text)}</div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+
+            } else if (roomData.currentTool === 'vote') {
+                const myVote = votesList.find(v => v.uid === currentUser.uid);
+
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                        <span class="block text-xs font-semibold text-slate-400">請點選您的選項 (${roomData.voteType==='single'?'單選':'複選'})：</span>
+                        <form onsubmit="submitUserVote(event)" class="space-y-2.5">
+                            ${roomData.voteOptions.map((opt, idx) => {
+                                const type = roomData.voteType === 'single' ? 'radio' : 'checkbox';
+                                return `
+                                    <label class="flex items-center gap-3 bg-slate-950/40 hover:bg-slate-950/80 border border-slate-850 hover:border-slate-700 rounded-xl p-3.5 transition-all cursor-pointer">
+                                        <input type="${type}" name="user-vote-option" value="${opt.id}" class="w-4 h-4 text-indigo-600 border-slate-700 focus:ring-indigo-500 bg-slate-950" ${myVote ? 'disabled':''}>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-mono font-bold text-slate-500">${String.fromCharCode(65 + idx)}</span>
+                                            <span class="text-xs sm:text-sm text-slate-200 font-medium">${opt.text}</span>
+                                        </div>
+                                    </label>
+                                `;
+                            }).join('')}
+                            <button type="submit" id="user-vote-submit-btn" ${myVote ? 'disabled' : ''} class="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 shadow-md mt-4">
+                                ${myVote ? '<i data-lucide="check" class="w-4 h-4"></i> 您已完成投票' : '<i data-lucide="send" class="w-4 h-4"></i> 確認送出我的票選'}
+                            </button>
+                        </form>
+                    </div>
+                `;
+
+            } else if (roomData.currentTool === 'wordcloud') {
+                const myWc = submissionsList.filter(s => s.type === 'wordcloud' && s.uid === currentUser.uid);
+
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+                        <span class="text-xs font-bold text-amber-400 flex items-center gap-1">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-pulse text-amber-400"></i> 熱門推薦靈感詞 (直接點選即刻送出，共 12 組)
+                        </span>
+                        <div class="grid grid-cols-2 gap-2" id="user-wc-suggestions"></div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+                        <form onsubmit="submitWordcloudWord(event)" class="space-y-3">
+                            <label class="block text-xs font-semibold text-slate-400">或是寫下您獨特的看法關鍵字：</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="user-wc-input" required placeholder="例如：多元跨域" maxlength="15"
+                                    class="flex-grow bg-slate-950/80 border border-slate-700 focus:border-amber-500 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all">
+                                <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 rounded-xl text-sm transition-all flex items-center gap-1 shrink-0">
+                                    送出
+                                </button>
+                            </div>
+                        </form>
+                        ${myWc.length > 0 ? `
+                            <div class="pt-3 border-t border-slate-850">
+                                <span class="text-[10px] text-slate-500 block mb-1.5">我已送出的關鍵詞：</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    ${myWc.map(w => `<span class="text-[10px] bg-amber-500/10 border border-amber-500/25 text-amber-300 px-2.5 py-0.5 rounded-full">${escapeHtml(w.text)}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                const sugContainer = document.getElementById('user-wc-suggestions');
+                if (sugContainer) {
+                    roomData.wordcloudSuggestions.forEach(word => {
+                        const btn = document.createElement('button');
+                        btn.className = "text-xs py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 transition-all cursor-pointer active:scale-95 text-center truncate";
+                        btn.innerHTML = `✨ ${word}`;
+                        btn.onclick = () => submitDirectWcWord(word);
+                        sugContainer.appendChild(btn);
+                    });
+                }
+
+            } else if (roomData.currentTool === 'stickynotes') {
+                const myNotes = submissionsList.filter(s => s.type === 'stickynotes' && s.uid === currentUser.uid);
+                const publicNotes = submissionsList.filter(s => s.type === 'stickynotes');
+
+                container.innerHTML = `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                        <label class="block text-xs font-semibold text-slate-400">貼上您的總結便利貼 (限 50 字內)：</label>
+                        <form onsubmit="submitStickyNote(event)" class="space-y-4">
+                            <div class="flex items-center gap-3 bg-slate-950/50 p-3 rounded-xl border border-slate-850">
+                                <span class="text-[11px] text-slate-400 font-medium">便利貼顏色：</span>
+                                <div class="flex items-center gap-2">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="sticky-color" value="yellow" checked class="sr-only peer">
+                                        <span class="inline-block w-6 h-6 rounded-full bg-yellow-400 border-2 border-transparent peer-checked:border-white transition-all shadow-md"></span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="sticky-color" value="blue" class="sr-only peer">
+                                        <span class="inline-block w-6 h-6 rounded-full bg-cyan-400 border-2 border-transparent peer-checked:border-white transition-all shadow-md"></span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="sticky-color" value="green" class="sr-only peer">
+                                        <span class="inline-block w-6 h-6 rounded-full bg-emerald-400 border-2 border-transparent peer-checked:border-white transition-all shadow-md"></span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="sticky-color" value="pink" class="sr-only peer">
+                                        <span class="inline-block w-6 h-6 rounded-full bg-pink-400 border-2 border-transparent peer-checked:border-white transition-all shadow-md"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <textarea id="user-sticky-input" required maxlength="50" placeholder="寫下今天活動或課程最深刻的心得感想..." rows="3"
+                                class="w-full bg-slate-950/80 border border-slate-750 focus:border-amber-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-650 focus:outline-none transition-all resize-none"></textarea>
+                            <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 shadow-md">
+                                <i data-lucide="send" class="w-4 h-4"></i> 張貼我的便利貼
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 💬 全班同儕意見認同牆 (互動集氣認同按鈕) -->
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+                        <h3 class="text-xs font-bold text-indigo-400 flex items-center gap-1.5 pb-2 border-b border-slate-850">
+                            <i data-lucide="message-square" class="w-4 h-4"></i>
+                            同儕共創意見牆 (共 ${publicNotes.length} 則，點擊 💖 幫他人打氣)
+                        </h3>
+                        <div class="grid grid-cols-1 gap-2.5 max-h-[300px] overflow-y-auto no-scrollbar pt-1" id="user-public-notes-list">
+                            ${publicNotes.length === 0 ? `
+                                <div class="text-center py-6 text-slate-600 text-xs">
+                                    目前尚無同儕留言，快來搶頭香！
+                                </div>
+                            ` : publicNotes.map(note => {
+                                const isLiked = note.likes && note.likes.includes(currentUser.uid);
+                                const count = note.likes ? note.likes.length : 0;
+                                const displayName = note.nickname ? note.nickname : '學員 ' + note.uid.substring(0, 4);
+                                const colors = {
+                                    yellow: 'bg-yellow-400/5 border-yellow-400/20 text-yellow-200/90',
+                                    blue: 'bg-cyan-400/5 border-cyan-400/20 text-cyan-200/90',
+                                    green: 'bg-emerald-400/5 border-emerald-400/20 text-emerald-200/90',
+                                    pink: 'bg-pink-400/5 border-pink-400/20 text-pink-200/90'
+                                };
+                                const colorClass = colors[note.color] || colors.yellow;
+                                return `
+                                    <div class="${colorClass} border rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition-all">
+                                        <p class="text-xs leading-relaxed font-medium">${escapeHtml(note.text)}</p>
+                                        <div class="flex justify-between items-center text-[10px]">
+                                            <span class="text-slate-500"># ${escapeHtml(displayName)}</span>
+                                            <button onclick="likeStickyNote('${note.id}')" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-950/40 hover:bg-slate-950/80 border border-slate-800/40 text-pink-500 font-bold transition-all active:scale-95">
+                                                <i data-lucide="heart" class="w-3.5 h-3.5 ${isLiked ? 'fill-pink-500 text-pink-500' : 'fill-none text-slate-500'}"></i>
+                                                <span>${count}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 11. 學員端投稿事件處置 (將學員暱稱整合至資料傳輸中)
+        // ==========================================
+        window.submitIcebreakerAnswer = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('user-icebreaker-input');
+            const val = input ? input.value.trim() : '';
+            if (!val) return;
+
+            const currentNickname = localStorage.getItem('winnie_user_nickname') || '學員 ' + currentUser.uid.substring(0, 4);
+
+            try {
+                const subData = {
+                    roomId: roomId,
+                    type: 'icebreaker',
+                    cardId: roomData.activeCardId,
+                    text: val,
+                    uid: currentUser.uid,
+                    nickname: currentNickname,
+                    likes: [],
+                    timestamp: Date.now()
+                };
+
+                if (!isOffline && db) {
+                    const subCol = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    await addDoc(subCol, subData);
+                } else {
+                    submissionsList.push({ id: 'local-' + Date.now(), ...subData });
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                if (input) input.value = "";
+                showToast("🚀 暖身卡意見已同步至大螢幕！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.submitUserVote = async function(e) {
+            e.preventDefault();
+            const checkedBoxes = document.querySelectorAll('input[name="user-vote-option"]:checked');
+            if (checkedBoxes.length === 0) {
+                showToast("⚠️ 請先選擇最想投的選項！");
+                return;
+            }
+
+            try {
+                for (const box of checkedBoxes) {
+                    const optId = parseInt(box.value);
+                    const voteData = {
+                        roomId: roomId,
+                        optionId: optId,
+                        uid: currentUser.uid,
+                        timestamp: Date.now()
+                    };
+
+                    if (!isOffline && db) {
+                        const votesCol = collection(db, 'artifacts', appId, 'public', 'data', 'votes');
+                        await addDoc(votesCol, voteData);
+                    } else {
+                        votesList.push({ id: 'local-' + Date.now(), ...voteData });
+                    }
+                }
+                if (isOffline) saveLocalData();
+                showToast("🚀 投票完成！感謝您的參與！");
+                syncLocalUI();
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.submitWordcloudWord = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('user-wc-input');
+            const val = input ? input.value.trim() : '';
+            if (!val) return;
+
+            const parts = val.split(/[\s,，、]+/).filter(p => p.trim().length > 0);
+            try {
+                for (const p of parts) {
+                    const clean = p.substring(0, 15);
+                    const subData = {
+                        roomId: roomId,
+                        type: 'wordcloud',
+                        text: clean,
+                        uid: currentUser.uid,
+                        timestamp: Date.now()
+                    };
+
+                    if (!isOffline && db) {
+                        const subCol = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                        await addDoc(subCol, subData);
+                    } else {
+                        submissionsList.push({ id: 'local-' + Date.now(), ...subData });
+                    }
+                }
+                if (isOffline) saveLocalData();
+                if (input) input.value = "";
+                showToast("🚀 送出成功！即將出現在大螢幕！");
+                syncLocalUI();
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.submitDirectWcWord = async function(word) {
+            try {
+                const subData = {
+                    roomId: roomId,
+                    type: 'wordcloud',
+                    text: word,
+                    uid: currentUser.uid,
+                    timestamp: Date.now()
+                };
+
+                if (!isOffline && db) {
+                    const subCol = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    await addDoc(subCol, subData);
+                } else {
+                    submissionsList.push({ id: 'local-' + Date.now(), ...subData });
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast(`🚀 已成功為「${word}」集氣送出！`);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.submitStickyNote = async function(e) {
+            e.preventDefault();
+            const colorEl = document.querySelector('input[name="sticky-color"]:checked');
+            const color = colorEl ? colorEl.value : 'yellow';
+            const textInput = document.getElementById('user-sticky-input');
+            const val = textInput ? textInput.value.trim() : '';
+            if (!val) return;
+
+            const currentNickname = localStorage.getItem('winnie_user_nickname') || '學員 ' + currentUser.uid.substring(0, 4);
+
+            try {
+                const subData = {
+                    roomId: roomId,
+                    type: 'stickynotes',
+                    text: val,
+                    color: color,
+                    uid: currentUser.uid,
+                    nickname: currentNickname,
+                    likes: [],
+                    timestamp: Date.now()
+                };
+
+                if (!isOffline && db) {
+                    const subCol = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    await addDoc(subCol, subData);
+                } else {
+                    submissionsList.push({ id: 'local-' + Date.now(), ...subData });
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                if (textInput) textInput.value = "";
+                showToast("🚀 便利貼已成功貼上展示牆！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // ==========================================
+        // 12. 詞彙安全過濾面板與管理員功能 (Moderation Section)
+        // ==========================================
+        function updateAdminModerationList() {
+            const container = document.getElementById('admin-word-list');
+            if (!container) return; 
+
+            container.innerHTML = '';
+            
+            const wcSubmissions = submissionsList.filter(s => s.type === 'wordcloud');
+            const wordCounts = {};
+            wcSubmissions.forEach(sub => {
+                const w = sub.text.trim();
+                if (w) wordCounts[w] = (wordCounts[w] || 0) + 1;
+            });
+
+            const sortedWords = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]);
+
+            if (sortedWords.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-600 text-center py-4">目前尚無學員投稿</div>`;
+                return;
+            }
+
+            sortedWords.forEach(([word, count]) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-lg px-2.5 py-1.5 transition-all";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 truncate pr-2">
+                        <span class="text-[10px] bg-indigo-500/25 text-indigo-300 font-bold px-1.5 py-0.5 rounded shrink-0">${count}次</span>
+                        <span class="text-xs text-slate-300 font-medium truncate" title="${word}">${word}</span>
+                    </div>
+                    <button onclick="deleteSingleWord('${word}')" class="text-slate-500 hover:text-red-400 p-0.5 transition-colors shrink-0">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+
+            lucide.createIcons();
+        }
+
+        window.deleteSingleWord = async function(word) {
+            const wcList = submissionsList.filter(s => s.type === 'wordcloud' && s.text === word);
+            try {
+                if (!isOffline && db) {
+                    for (const sub of wcList) {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', sub.id);
+                        await deleteDoc(docRef);
+                    }
+                } else {
+                    submissionsList = submissionsList.filter(s => !(s.type === 'wordcloud' && s.text === word));
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast(`🗑️ 已移除不當詞彙：「${word}」`);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // 高奢防震確認彈窗 Modal 代替 confirm() (RULE CSP Sandbox Guard)
+        window.openClearDataModal = function() {
+            if (submissionsList.length === 0 && votesList.length === 0) {
+                showToast("🧹 目前看板已無任何數據。");
+                return;
+            }
+            const modal = document.getElementById('clear-data-modal');
+            if (modal) modal.classList.remove('hidden');
+        };
+
+        window.closeClearDataModal = function() {
+            const modal = document.getElementById('clear-data-modal');
+            if (modal) modal.classList.add('hidden');
+        };
+
+        window.confirmClearAllData = function() {
+            closeClearDataModal();
+            clearAllData();
+        };
+
+        window.clearAllData = async function() {
+            try {
+                if (!isOffline && db) {
+                    showToast("🧹 正在清空雲端資料中...");
+                    for (const sub of submissionsList) {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', sub.id);
+                        await deleteDoc(docRef);
+                    }
+                    for (const vote of votesList) {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'votes', vote.id);
+                        await deleteDoc(docRef);
+                    }
+                    const roomDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+                    await updateDoc(roomDocRef, { stickySummary: "" });
+                } else {
+                    submissionsList = [];
+                    votesList = [];
+                    if (roomData) roomData.stickySummary = "";
+                    saveLocalData();
+                    syncLocalUI();
+                }
+                showToast("🧹 已成功將所有學員互動紀錄清空！");
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // ==========================================
+        // 13. 畫質導出與 CSV 產生器 (與學員自訂暱稱深度整合)
+        // ==========================================
+        window.exportCurrentViewAsImage = function() {
+            if (!roomData) return;
+
+            const offCanvas = document.getElementById('offscreen-export-canvas');
+            if (!offCanvas) return;
+
+            const W = 1200;
+            const H = 800;
+            offCanvas.width = W;
+            offCanvas.height = H;
+
+            const ctx = offCanvas.getContext('2d');
+
+            ctx.fillStyle = '#0b1120';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = 'rgba(99, 102, 241, 0.08)';
+            const spacing = 24;
+            for (let x = spacing/2; x < W; x += spacing) {
+                for (let y = spacing/2; y < H; y += spacing) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            const grad = ctx.createRadialGradient(W/2, H/2, 50, W/2, H/2, W*0.7);
+            grad.addColorStop(0, 'rgba(99, 102, 241, 0.15)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 16px "Noto Sans TC", sans-serif';
+            ctx.fillText('🐻 Winnie EdTech Lab 課堂實戰互動儀表板', 50, 45);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.fillRect(50, 65, W - 100, 1.5);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 15px "Noto Sans TC", sans-serif';
+            ctx.fillText('Winnie EdTech Live 互動套件箱', W - 300, H - 35);
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px "Noto Sans TC", sans-serif';
+            ctx.fillText('專業讓你稱職 熱情使你傑出 🚀', W - 300, H - 15);
+
+            const tool = roomData.currentTool;
+
+            if (tool === 'icebreaker') {
+                const activeCard = roomData.icebreakerCards.find(c => Number(c.id) === Number(roomData.activeCardId));
+                const question = activeCard ? activeCard.question : "暖身問題讀取中...";
+                const answers = submissionsList.filter(s => s.type === 'icebreaker' && Number(s.cardId) === Number(roomData.activeCardId));
+
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.08)';
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.25)';
+                drawRoundedRect(ctx, 50, 90, W - 100, 100, 16, true, true);
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 22px "Noto Sans TC", sans-serif';
+                ctx.fillText(question, 75, 145);
+
+                const cardW = 340;
+                const cardH = 150;
+                const startX = 50;
+                const startY = 220;
+                const gap = 30;
+
+                if (answers.length === 0) {
+                    ctx.fillStyle = '#475569';
+                    ctx.font = 'italic 16px "Noto Sans TC", sans-serif';
+                    ctx.fillText('等待學員分享想法...', W/2 - 100, H/2);
+                } else {
+                    answers.slice(0, 6).forEach((ans, idx) => {
+                        const col = idx % 3;
+                        const row = Math.floor(idx / 3);
+                        const x = startX + col * (cardW + gap);
+                        const y = startY + row * (cardH + gap);
+
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                        drawRoundedRect(ctx, x, y, cardW, cardH, 12, true, true);
+
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.font = '14px "Noto Sans TC", sans-serif';
+                        wrapText(ctx, ans.text, x + 20, y + 35, cardW - 40, 22);
+
+                        ctx.fillStyle = '#64748b';
+                        ctx.font = 'bold 10px monospace';
+                        const displayName = ans.nickname ? ans.nickname : '學員 ' + ans.uid.substring(0, 4);
+                        ctx.fillText(`# ${displayName}`, x + 20, y + cardH - 15);
+                    });
+                }
+                saveImageTrigger(offCanvas);
+
+            } else if (tool === 'vote') {
+                const totalVotes = votesList.length;
+                const optionsStats = roomData.voteOptions.map(opt => {
+                    const count = votesList.filter(v => v.optionId === opt.id).length;
+                    const percent = totalVotes > 0 ? (count / totalVotes) : 0;
+                    return { ...opt, count, percent };
+                });
+
+                ctx.fillStyle = '#f1f5f9';
+                ctx.font = 'bold 24px "Noto Sans TC", sans-serif';
+                ctx.fillText(roomData.voteQuestion, 50, 120);
+
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px sans-serif';
+                ctx.fillText(`累積投票：${totalVotes} 票`, 50, 150);
+
+                const chartX = 50;
+                const chartY = 190;
+                const barWidth = 600;
+
+                optionsStats.forEach((stat, idx) => {
+                    const y = chartY + idx * 100;
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.font = 'bold 14px "Noto Sans TC", sans-serif';
+                    ctx.fillText(`${String.fromCharCode(65 + idx)}. ${stat.text}`, chartX, y);
+
+                    ctx.fillStyle = '#1e293b';
+                    drawRoundedRect(ctx, chartX, y + 10, barWidth, 16, 8, true, false);
+
+                    const gradBar = ctx.createLinearGradient(chartX, 0, chartX + barWidth * stat.percent, 0);
+                    gradBar.addColorStop(0, '#6366f1');
+                    gradBar.addColorStop(1, '#ec4899');
+                    ctx.fillStyle = gradBar;
+                    if (stat.percent > 0) {
+                        drawRoundedRect(ctx, chartX, y + 10, barWidth * stat.percent, 16, 8, true, false);
+                    }
+
+                    ctx.fillStyle = '#818cf8';
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.fillText(`${stat.count} 票 (${Math.round(stat.percent*100)}%)`, chartX + barWidth + 20, y + 23);
+                });
+
+                const pieX = W - 220;
+                const pieY = H/2 + 20;
+                const r = 120;
+                let cumulativePercent = 0;
+
+                optionsStats.forEach((stat, idx) => {
+                    if (stat.percent === 0) return;
+                    ctx.beginPath();
+                    ctx.moveTo(pieX, pieY);
+                    
+                    const startAngle = 2 * Math.PI * cumulativePercent - Math.PI/2;
+                    cumulativePercent += stat.percent;
+                    const endAngle = 2 * Math.PI * cumulativePercent - Math.PI/2;
+                    
+                    ctx.arc(pieX, pieY, r, startAngle, endAngle);
+                    ctx.closePath();
+                    ctx.fillStyle = getOptionColor(idx);
+                    ctx.fill();
+                    ctx.strokeStyle = '#0b1120';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+
+                ctx.beginPath();
+                ctx.arc(pieX, pieY, r * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0b1120';
+                ctx.fill();
+
+                saveImageTrigger(offCanvas);
+
+            } else if (tool === 'wordcloud') {
+                const cloudCanvas = document.getElementById('cloud-canvas');
+                if (cloudCanvas) {
+                    ctx.drawImage(cloudCanvas, 50, 100, W - 100, H - 200);
+                } else {
+                    const backupDiv = document.getElementById('html-backup-cloud');
+                    if (backupDiv) {
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.font = '20px "Noto Sans TC", sans-serif';
+                        ctx.fillText('文字雲圖表報告：', 50, 120);
+                        
+                        const wcSubmissions = submissionsList.filter(s => s.type === 'wordcloud');
+                        const wordCounts = {};
+                        wcSubmissions.forEach(sub => {
+                            const w = sub.text.trim();
+                            if (w) wordCounts[w] = (wordCounts[w] || 0) + 1;
+                        });
+                        
+                        let yOffset = 180;
+                        Object.entries(wordCounts).slice(0, 15).forEach(([word, count]) => {
+                            ctx.fillStyle = '#e2e8f0';
+                            ctx.fillText(`• ${word} : ${count} 次`, 100, yOffset);
+                            yOffset += 30;
+                        });
+                    }
+                }
+                saveImageTrigger(offCanvas);
+
+            } else if (tool === 'stickynotes') {
+                const notes = submissionsList.filter(s => s.type === 'stickynotes');
+
+                ctx.fillStyle = '#f1f5f9';
+                ctx.font = 'bold 22px "Noto Sans TC", sans-serif';
+                ctx.fillText(roomData.stickyPrompt, 50, 120);
+
+                let startY = 160;
+                const cardW = 240;
+                const cardH = 130;
+                const gap = 30;
+
+                if (notes.length === 0) {
+                    ctx.fillStyle = '#475569';
+                    ctx.font = 'italic 16px "Noto Sans TC", sans-serif';
+                    ctx.fillText('等待學員貼上便利貼想法...', W/2 - 100, H/2 + 50);
+                } else {
+                    notes.slice(0, 12).forEach((note, idx) => {
+                        const col = idx % 4;
+                        const row = Math.floor(idx / 4);
+                        const x = 50 + col * (cardW + gap);
+                        const y = startY + row * (cardH + gap);
+
+                        const colorPalette = {
+                            yellow: { bg: 'rgba(250, 204, 21, 0.1)', border: 'rgba(250, 204, 21, 0.35)', text: '#fde047' },
+                            blue: { bg: 'rgba(34, 211, 238, 0.1)', border: 'rgba(34, 211, 238, 0.35)', text: '#67e8f9' },
+                            green: { bg: 'rgba(52, 211, 153, 0.1)', border: 'rgba(52, 211, 153, 0.35)', text: '#6ee7b7' },
+                            pink: { bg: 'rgba(244, 114, 182, 0.1)', border: 'rgba(244, 114, 182, 0.35)', text: '#f9a8d4' }
+                        };
+                        const colSet = colorPalette[note.color] || colorPalette.yellow;
+
+                        ctx.fillStyle = colSet.bg;
+                        ctx.strokeStyle = colSet.border;
+                        drawRoundedRect(ctx, x, y, cardW, cardH, 12, true, true);
+
+                        ctx.fillStyle = colSet.text;
+                        ctx.font = 'bold 12px "Noto Sans TC", sans-serif';
+                        wrapText(ctx, note.text, x + 20, y + 35, cardW - 40, 20);
+
+                        // 導出圖片時亦渲染點讚數量 (💖)
+                        const likesCount = note.likes ? note.likes.length : 0;
+                        ctx.fillStyle = '#f472b6'; // pink-400
+                        ctx.font = 'bold 11px sans-serif';
+                        ctx.fillText(`💖 ${likesCount}`, x + 20, y + cardH - 12);
+
+                        ctx.fillStyle = '#475569';
+                        ctx.font = 'bold 9px monospace';
+                        const displayName = note.nickname ? note.nickname : '學員 ' + note.uid.substring(0, 4);
+                        ctx.fillText(displayName, x + cardW - ctx.measureText(displayName).width - 15, y + cardH - 12);
+                    });
+                }
+                saveImageTrigger(offCanvas);
+            }
+        };
+
+        function drawRoundedRect(ctx, x, y, w, h, r, fill, stroke) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+            if (fill) ctx.fill();
+            if (stroke) ctx.stroke();
+        }
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const words = Array.from(text);
+            let line = '';
+            let testLine = '';
+            let yPos = y;
+
+            for (let n = 0; n < words.length; n++) {
+                testLine = line + words[n];
+                let metrics = ctx.measureText(testLine);
+                let testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    ctx.fillText(line, x, yPos);
+                    line = words[n];
+                    yPos += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, x, yPos);
+            return yPos;
+        }
+
+        function saveImageTrigger(canvas) {
+            try {
+                const previewImg = document.getElementById('export-preview-img');
+                const modal = document.getElementById('image-export-modal');
+                if (previewImg && modal) {
+                    previewImg.src = canvas.toDataURL('image/png');
+                    modal.classList.remove('hidden');
+                    showToast("📸 高規格簡報圖檔已成功生成！");
+                }
+            } catch (err) {
+                showToast("❌ 圖片生成失敗");
+                console.error(err);
+            }
+        }
+
+        window.closeExportModal = function() {
+            const modal = document.getElementById('image-export-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        };
+
+        window.exportGoogleSheetsCSV = function() {
+            if (!roomData) return;
+
+            let csv = "\uFEFFWinnie EdTech Live 互動套件箱數據分析報告\n";
+            csv += `雲端同步看板,常駐單一公共通道\n`;
+            csv += `匯出日期,${new Date().toLocaleString()}\n\n`;
+
+            csv += "=== 1. 破冰提問暖身 ===\n";
+            roomData.icebreakerCards.forEach(card => {
+                csv += `暖身卡卡片 ${card.id} 題目,"${card.question.replace(/"/g, '""')}"\n`;
+                const ans = submissionsList.filter(s => s.type === 'icebreaker' && Number(s.cardId) === Number(card.id));
+                if (ans.length === 0) {
+                    csv += "學員回答,(無)\n";
+                } else {
+                    ans.forEach(a => {
+                        const displayName = a.nickname ? a.nickname : '學員 ' + a.uid.substring(0, 4);
+                        csv += `學員: ${displayName},"${a.text.replace(/"/g, '""')}"\n`;
+                    });
+                }
+            });
+            csv += "\n";
+
+            csv += "=== 2. 即時投票統計 ===\n";
+            csv += `投票題目,"${roomData.voteQuestion.replace(/"/g, '""')}"\n`;
+            roomData.voteOptions.forEach((opt, idx) => {
+                const count = votesList.filter(v => v.optionId === opt.id).length;
+                csv += `${String.fromCharCode(65 + idx)}. ${opt.text},${count} 票\n`;
+            });
+            csv += "\n";
+
+            csv += "=== 3. 即時文字雲統計 ===\n";
+            csv += `討論引導主題,"${roomData.wordcloudQuestion.replace(/"/g, '""')}"\n`;
+            const wordCounts = {};
+            submissionsList.filter(s => s.type === 'wordcloud').forEach(sub => {
+                const w = sub.text.trim();
+                if (w) wordCounts[w] = (wordCounts[w] || 0) + 1;
+            });
+            const sortedWords = Object.entries(wordCounts).sort((a, b) => b[1] - a[1]);
+            if (sortedWords.length === 0) {
+                csv += "詞彙,出現次數\n,(無)\n";
+            } else {
+                csv += "詞彙,出現次數\n";
+                sortedWords.forEach(([word, count]) => {
+                    csv += `"${word.replace(/"/g, '""')}",${count} 次\n`;
+                });
+            }
+            csv += "\n";
+
+            csv += "=== 4. 便利貼牆學員意見 ===\n";
+            csv += `便利貼提示語,"${roomData.stickyPrompt.replace(/"/g, '""')}"\n`;
+            const notes = submissionsList.filter(s => s.type === 'stickynotes');
+            if (notes.length === 0) {
+                csv += "便利貼內容,(無)\n";
+            } else {
+                notes.forEach(n => {
+                    const likesCount = n.likes ? n.likes.length : 0;
+                    const displayName = n.nickname ? n.nickname : '學員 ' + n.uid.substring(0, 4);
+                    csv += `${displayName} (${n.color}) [獲認同數: ${likesCount}],"${n.text.replace(/"/g, '""')}"\n`;
+                });
+            }
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Winnie_LiveDeck_Report_${Date.now().toString().slice(-6)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("📊 數據報告匯出成功！拖進 Google Sheets 即可完美分析。");
+        };
+
+        // ==========================================
+        // 14. 輔助公用工具 (Helpers)
+        // ==========================================
+        window.copyJoinLink = function() {
+            const urlInput = document.getElementById('admin-join-url');
+            const url = urlInput ? urlInput.value : '';
+            (async () => {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(url);
+                    } else if (urlInput) {
+                        urlInput.select();
+                        document.execCommand('copy');
+                    }
+                    showToast("📋 填答網址已複製！可以張貼至學員群組！");
+                } catch (err) {
+                    showToast("❌ 無法複製連結，請手動複製。");
+                }
+            })();
+        };
+
+        window.toggleFullscreen = function() {
+            const container = document.getElementById('admin-canvas-container');
+            const sidebar = document.getElementById('admin-sidebar');
+            const header = document.querySelector('header');
+
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden');
+                if (header) header.classList.remove('hidden');
+                container.className = "lg:col-span-8 flex flex-col";
+                showToast("🔙 離開投影大螢幕模式");
+            } else {
+                sidebar.classList.add('hidden');
+                if (header) header.classList.add('hidden');
+                container.className = "lg:col-span-12 flex flex-col h-[90vh]";
+                showToast("📺 已開啟滿版大螢幕投影模式");
+            }
+
+            setTimeout(() => {
+                renderAdminDisplayCanvas();
+            }, 250);
+        };
+
+        function getToolLabel(tool) {
+            switch (tool) {
+                case 'icebreaker': return '🧩 破冰暖身卡';
+                case 'vote': return '🗳️ 即時投票系統';
+                case 'wordcloud': return '☁️ 即時文字雲';
+                case 'stickynotes': return '📝 便利貼牆';
+                default: return '大螢幕展示';
+            }
+        }
+
+        function getUserActiveQuestion() {
+            if (!roomData) return "讀取中...";
+            switch (roomData.currentTool) {
+                case 'icebreaker':
+                    const activeCard = roomData.icebreakerCards.find(c => Number(c.id) === Number(roomData.activeCardId));
+                    return activeCard ? activeCard.question : "破冰暖身中...";
+                case 'vote': return roomData.voteQuestion;
+                case 'wordcloud': return roomData.wordcloudQuestion;
+                case 'stickynotes': return roomData.stickyPrompt;
+                default: return "請等待引導師切換工具...";
+            }
+        }
+
+        function updateAdminTabStyles(activeTool) {
+            const tabs = ['icebreaker', 'vote', 'wordcloud', 'stickynotes'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`admin-tab-${t}`);
+                if (btn) {
+                    if (t === activeTool) {
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 bg-indigo-600 text-white shadow";
+                    } else {
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60";
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            // 已完全修改至右下角呈現，高度防震不阻擋頂端
+            toast.className = "bg-slate-900/95 border border-slate-750 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0 text-xs sm:text-sm font-medium z-50 max-w-sm animate-bounce-short";
+            toast.innerHTML = `
+                <i data-lucide="info" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+                <span class="truncate">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 50);
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        window.showWinnieSurprise = function() {
+            showToast("🐻 專業讓你稱職，熱情使你傑出！歡迎來到 Winnie EdTech Lab 🚀");
+        };
+    </script>
+</body>
+</html>
